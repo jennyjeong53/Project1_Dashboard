@@ -1,0 +1,338 @@
+---
+title: "Bank Marketing Campaign Success Dashboard"
+subtitle: "Static Dashboard for W10 Dashboard Assignment - Project 1"
+author: "Yujin Jeong"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    orientation: rows
+    scrolling: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| context: setup
+
+library(tidyverse)
+library(scales)
+library(gt)
+
+bank_raw <- read_delim(
+  "bank-additional-full.csv",
+  delim = ";",
+  show_col_types = FALSE
+)
+
+names(bank_raw) <- names(bank_raw) |>
+  str_replace_all("\\.", "_")
+
+bank <- bank_raw |>
+  mutate(
+    subscribed = if_else(y == "yes", "Subscribed", "Not Subscribed"),
+    subscribed = factor(subscribed, levels = c("Not Subscribed", "Subscribed")),
+    age_group = case_when(
+      age < 30 ~ "Under 30",
+      age >= 30 & age < 40 ~ "30-39",
+      age >= 40 & age < 50 ~ "40-49",
+      age >= 50 & age < 60 ~ "50-59",
+      TRUE ~ "60+"
+    ),
+    age_group = factor(age_group, levels = c("Under 30", "30-39", "40-49", "50-59", "60+")),
+    month = factor(month, levels = c("mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")),
+    contact = str_to_title(contact),
+    poutcome = str_to_title(poutcome),
+    job = str_replace_all(job, "\\.", " ") |> str_to_title(),
+    education = str_replace_all(education, "\\.", " ") |> str_to_title(),
+    y_binary = if_else(y == "yes", 1, 0)
+  )
+
+total_contacts <- nrow(bank)
+total_subscribed <- sum(bank$y == "yes")
+subscription_rate <- mean(bank$y == "yes")
+avg_duration <- mean(bank$duration)
+
+subscription_by_group <- function(data, group_var) {
+  data |>
+    group_by({{ group_var }}) |>
+    summarise(
+      contacts = n(),
+      subscriptions = sum(y == "yes"),
+      subscription_rate = subscriptions / contacts,
+      .groups = "drop"
+    )
+}
+```
+
+# Campaign Overview
+
+## Row {height=28%}
+
+```{r}
+#| content: valuebox
+#| title: Total Customer Contacts
+#| icon: people-fill
+list(
+  value = comma(total_contacts),
+  color = "primary"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: Total Subscriptions
+#| icon: check-circle-fill
+list(
+  value = comma(total_subscribed),
+  color = "success"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: Overall Subscription Rate
+#| icon: graph-up-arrow
+list(
+  value = percent(subscription_rate, accuracy = 0.1),
+  color = "info"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: Average Call Duration
+#| icon: telephone-fill
+list(
+  value = paste0(round(avg_duration), " sec"),
+  color = "warning"
+)
+```
+
+## Row {height=72%}
+
+### Subscription Outcome
+
+```{r}
+bank |>
+  count(subscribed) |>
+  mutate(percent = n / sum(n)) |>
+  ggplot(aes(x = subscribed, y = n, fill = subscribed)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = paste0(comma(n), "\n", percent(percent, accuracy = 0.1))),
+            vjust = -0.25, size = 4) +
+  scale_y_continuous(labels = comma, expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Most contacted customers did not subscribe",
+    subtitle = "The campaign has a clear class imbalance: subscriptions are a minority outcome.",
+    x = NULL,
+    y = "Number of contacts"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+### Dashboard Story
+
+This dashboard examines direct marketing campaign records from a Portuguese banking institution. Each row represents one customer contact. The main outcome is whether the customer subscribed to a term deposit after the campaign contact.
+
+The story focuses on four questions:
+
+1. How successful was the campaign overall?
+2. Which customer groups show higher subscription rates?
+3. Which campaign conditions are associated with stronger results?
+4. What practical targeting insights can marketing managers use?
+
+# Customer Profile Insights
+
+## Row
+
+### Subscription Rate by Age Group
+
+```{r}
+subscription_by_group(bank, age_group) |>
+  ggplot(aes(x = age_group, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)),
+            vjust = -0.25, size = 4) +
+  scale_y_continuous(labels = percent, expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Older customers show stronger subscription rates",
+    subtitle = "The 60+ group is especially important for term deposit targeting.",
+    x = "Age group",
+    y = "Subscription rate"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+### Subscription Rate by Job
+
+```{r}
+subscription_by_group(bank, job) |>
+  filter(contacts >= 200) |>
+  arrange(subscription_rate) |>
+  mutate(job = fct_reorder(job, subscription_rate)) |>
+  ggplot(aes(x = subscription_rate, y = job)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)),
+            hjust = -0.1, size = 3.6) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title = "Subscription rates differ by occupation",
+    subtitle = "Job category can help managers prioritize customer segments.",
+    x = "Subscription rate",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+# Campaign Timing and Contact Strategy
+
+## Row
+
+### Subscription Rate by Month
+
+```{r}
+subscription_by_group(bank, month) |>
+  ggplot(aes(x = month, y = subscription_rate, group = 1)) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 3) +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)),
+            vjust = -0.8, size = 3.6) +
+  scale_y_continuous(labels = percent, expand = expansion(mult = c(0.05, 0.15))) +
+  labs(
+    title = "Campaign timing matters",
+    subtitle = "Some months show much stronger response rates than others.",
+    x = "Contact month",
+    y = "Subscription rate"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+### Contact Method and Previous Outcome
+
+```{r}
+bank |>
+  group_by(contact, poutcome) |>
+  summarise(
+    contacts = n(),
+    subscriptions = sum(y == "yes"),
+    subscription_rate = subscriptions / contacts,
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = poutcome, y = subscription_rate, fill = contact)) +
+  geom_col(position = position_dodge(width = 0.8)) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Contact channel and past campaign outcome are useful signals",
+    subtitle = "Customers with a successful previous outcome tend to respond better.",
+    x = "Previous campaign outcome",
+    y = "Subscription rate",
+    fill = "Contact type"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+# Economic and Campaign Factors
+
+## Row
+
+### Call Duration and Subscription
+
+```{r}
+bank |>
+  mutate(duration_min = duration / 60) |>
+  ggplot(aes(x = subscribed, y = duration_min, fill = subscribed)) +
+  geom_boxplot(show.legend = FALSE, outlier.alpha = 0.1) +
+  coord_cartesian(ylim = c(0, 20)) +
+  labs(
+    title = "Longer calls are associated with subscriptions",
+    subtitle = "Duration should be interpreted carefully because it is known after the call occurs.",
+    x = NULL,
+    y = "Call duration in minutes"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+### Economic Context: Euribor 3-Month Rate
+
+```{r}
+bank |>
+  mutate(euribor_group = cut(euribor3m, breaks = 6)) |>
+  group_by(euribor_group) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(y == "yes"),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = euribor_group, y = subscription_rate)) +
+  geom_col() +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Subscription behavior changes with economic conditions",
+    subtitle = "The Euribor 3-month rate is one external indicator linked to customer response.",
+    x = "Euribor 3-month rate group",
+    y = "Subscription rate"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+# Key Findings and Recommendations
+
+## Row
+
+### Summary Table
+
+```{r}
+summary_table <- tibble(
+  Metric = c(
+    "Total contacts",
+    "Total subscriptions",
+    "Overall subscription rate",
+    "Average call duration",
+    "Highest age-group subscription rate",
+    "Best previous campaign outcome"
+  ),
+  Value = c(
+    comma(total_contacts),
+    comma(total_subscribed),
+    percent(subscription_rate, accuracy = 0.1),
+    paste0(round(avg_duration), " seconds"),
+    subscription_by_group(bank, age_group) |>
+      arrange(desc(subscription_rate)) |>
+      slice(1) |>
+      transmute(value = paste0(age_group, " (", percent(subscription_rate, accuracy = 0.1), ")")) |>
+      pull(value),
+    subscription_by_group(bank, poutcome) |>
+      arrange(desc(subscription_rate)) |>
+      slice(1) |>
+      transmute(value = paste0(poutcome, " (", percent(subscription_rate, accuracy = 0.1), ")")) |>
+      pull(value)
+  )
+)
+
+summary_table |>
+  gt() |>
+  tab_header(
+    title = "Main Dashboard Takeaways",
+    subtitle = "Important numbers for campaign planning"
+  ) |>
+  cols_label(
+    Metric = "Metric",
+    Value = "Value"
+  )
+```
+
+### Managerial Interpretation
+
+The dashboard suggests that subscription success is not evenly distributed across all customers or campaign conditions. Marketing managers should avoid treating the entire customer list the same way. Instead, they can improve campaign efficiency by prioritizing customer segments and campaign settings that show stronger subscription rates.
+
+Key recommendations:
+
+- Prioritize customer groups with stronger historical subscription rates.
+- Use job category, age group, contact type, and previous campaign outcome as targeting signals.
+- Consider campaign timing because response rates vary by month.
+- Be careful when using call duration for prediction because it is only known after the contact happens.
+- Use economic indicators as context when evaluating campaign performance.

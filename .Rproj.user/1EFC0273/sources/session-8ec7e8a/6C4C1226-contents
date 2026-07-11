@@ -1,0 +1,688 @@
+---
+title: "Bank Marketing Campaign Dashboard"
+author: "Yujin Jeong"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    orientation: rows
+    scrolling: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{css}
+body, .dashboard-page, .bslib-page-dashboard {
+  background: linear-gradient(135deg, #fffdf8 0%, #fff0f7 45%, #efffff 100%) !important;
+  color: #42405a;
+}
+
+.navbar, .quarto-dashboard .navbar {
+  background: linear-gradient(90deg, #ffb6c1, #d8b4f8, #9bf6ff) !important;
+  box-shadow: 0 4px 18px rgba(255, 105, 180, 0.22);
+}
+
+.navbar-title, .navbar-brand, .quarto-title, h1, h2, h3 {
+  font-weight: 800 !important;
+  letter-spacing: 0.2px;
+}
+
+.card, .bslib-card, .value-box {
+  border: 1px solid rgba(255, 182, 193, 0.45) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 8px 24px rgba(216, 180, 248, 0.18) !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  backdrop-filter: blur(8px);
+}
+
+.card-header, .bslib-card .card-header {
+  font-size: 1.05rem !important;
+  line-height: 1.2 !important;
+  background: linear-gradient(90deg, rgba(255, 182, 193, 0.35), rgba(184, 242, 230, 0.35), rgba(255, 243, 176, 0.40)) !important;
+  border-bottom: 0 !important;
+  border-radius: 22px 22px 0 0 !important;
+  color: #42405a !important;
+  font-weight: 800 !important;
+}
+
+.value-box {
+  overflow: hidden;
+}
+
+.value-box .value-box-title {
+  font-weight: 800;
+  color: #42405a;
+}
+
+.value-box .value-box-value {
+  font-weight: 900;
+  color: #2f2b46;
+}
+
+p, li {
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.chart-note {
+  margin: 0.35rem 1.1rem 1rem 1.1rem;
+  padding: 0.75rem 0.95rem;
+  border-left: 5px solid #ffb6c1;
+  background: linear-gradient(90deg, rgba(255, 182, 193, 0.23), rgba(184, 242, 230, 0.18));
+  border-radius: 14px;
+  color: #42405a;
+  font-size: 0.92rem;
+}
+
+.chart-note strong {
+  color: #2f2b46;
+}
+
+
+.findings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0.5rem 0.5rem 1rem 0.5rem;
+}
+
+.insight-card {
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 182, 193, 0.55);
+  box-shadow: 0 8px 22px rgba(216, 180, 248, 0.16);
+  min-height: 138px;
+}
+
+.insight-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1.08rem;
+  color: #2f2b46;
+}
+
+.insight-card p {
+  margin-bottom: 0;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.insight-pink { border-left: 9px solid #ff8fab; }
+.insight-mint { border-left: 9px solid #8eead9; }
+.insight-yellow { border-left: 9px solid #ffe66d; }
+.insight-lavender { border-left: 9px solid #c9a0f5; }
+.insight-aqua { border-left: 9px solid #7de8f2; }
+.insight-peach { border-left: 9px solid #ffc078; }
+
+.recommendation-card {
+  padding: 24px 28px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 182, 193, 0.30), rgba(184, 242, 230, 0.28), rgba(255, 243, 176, 0.35));
+  border: 1px solid rgba(255, 182, 193, 0.60);
+  box-shadow: 0 10px 26px rgba(255, 105, 180, 0.14);
+  margin: 0.5rem;
+}
+
+.recommendation-card h2 {
+  margin-top: 0;
+  color: #2f2b46;
+}
+
+.action-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.action-pill {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(216, 180, 248, 0.35);
+  font-weight: 650;
+  color: #42405a;
+}
+
+.final-takeaway {
+  margin-top: 16px;
+  padding: 15px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border-left: 7px solid #ff69b4;
+  font-size: 1rem;
+}
+
+.key-page {
+  padding: 0.5rem 0.7rem 0.2rem 0.7rem;
+}
+
+.section-title {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #2f2b46;
+  margin: 0.1rem 0 0.2rem 0;
+}
+
+.section-subtitle {
+  font-size: 0.98rem;
+  color: #57536e;
+  margin-bottom: 0.8rem;
+}
+
+.compact-grid {
+  gap: 13px !important;
+  margin: 0 0 0.8rem 0 !important;
+}
+
+.compact-grid .insight-card {
+  min-height: 0 !important;
+  padding: 13px 16px !important;
+}
+
+.insight-title {
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: #2f2b46;
+  margin-bottom: 5px;
+}
+
+.insight-text {
+  font-size: 0.88rem;
+  line-height: 1.38;
+  color: #42405a;
+}
+
+.compact-recommendation {
+  margin: 0 !important;
+  padding: 16px 19px !important;
+}
+
+.recommendation-title {
+  font-size: 1.18rem;
+  font-weight: 900;
+  color: #2f2b46;
+  margin-bottom: 6px;
+}
+
+.recommendation-text {
+  font-size: 0.92rem;
+  line-height: 1.38;
+  color: #42405a;
+  margin-bottom: 10px;
+}
+
+.compact-actions {
+  gap: 9px !important;
+  margin-top: 8px !important;
+}
+
+.compact-actions .action-pill {
+  padding: 9px 11px !important;
+  font-size: 0.88rem !important;
+}
+
+.compact-recommendation .final-takeaway {
+  margin-top: 10px !important;
+  padding: 10px 13px !important;
+  font-size: 0.9rem !important;
+}
+
+.table, table {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border-radius: 14px;
+  overflow: hidden;
+}
+```
+
+```{r}
+# Load packages
+library(tidyverse)
+library(plotly)
+library(knitr)
+library(scales)
+library(bslib)
+library(bsicons)
+
+# Read data
+# Put this QMD file and the CSV file in the same folder.
+# If your CSV has a different name, change the file name below.
+if (file.exists("bank-additional-full.csv")) {
+  bank <- read.csv("bank-additional-full.csv", sep = ";")
+} else if (file.exists("bank-additional-full(2).csv")) {
+  bank <- read.csv("bank-additional-full(2).csv", sep = ";")
+} else {
+  stop("CSV file not found. Please place bank-additional-full.csv in the same folder as this QMD file.")
+}
+
+# Y2K pastel palette
+pink <- "#FFB6C1"
+hot_pink <- "#FF69B4"
+mint <- "#B8F2E6"
+aqua <- "#9BF6FF"
+yellow <- "#FFF3B0"
+lavender <- "#D8B4F8"
+peach <- "#FFD6A5"
+rose <- "#FF8FAB"
+cream <- "#FFFDF8"
+ink <- "#42405A"
+pastel_palette <- c(pink, mint, yellow, aqua, lavender, peach, rose, "#CDEAC0", "#FFC6FF", "#CAFFBF", "#FDFFB6", "#A0C4FF")
+
+# Shared ggplot theme
+pastel_theme <- theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 17, color = ink),
+    plot.subtitle = element_text(size = 11, color = "#6f6b86"),
+    axis.title = element_text(face = "bold", color = ink),
+    axis.text = element_text(color = ink),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "#efeaf7", linewidth = 0.35),
+    plot.background = element_rect(fill = cream, color = NA),
+    panel.background = element_rect(fill = cream, color = NA),
+    legend.position = "none",
+    legend.title = element_blank(),
+    plot.margin = margin(8, 14, 18, 14)
+  )
+
+# Clean and prepare variables
+bank <- bank |>
+  mutate(
+    subscribed = if_else(y == "yes", 1, 0),
+    y = factor(y, levels = c("no", "yes"), labels = c("No", "Yes")),
+    age_group = cut(
+      age,
+      breaks = c(0, 29, 39, 49, 59, 100),
+      labels = c("Under 30", "30-39", "40-49", "50-59", "60+"),
+      right = TRUE
+    ),
+    contact = str_to_title(contact),
+    month = factor(month, levels = c("mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")),
+    month_name = fct_recode(
+      month,
+      "Mar" = "mar", "Apr" = "apr", "May" = "may", "Jun" = "jun",
+      "Jul" = "jul", "Aug" = "aug", "Sep" = "sep", "Oct" = "oct",
+      "Nov" = "nov", "Dec" = "dec"
+    ),
+    previous_contact = if_else(previous > 0, "Prior contact", "No prior contact"),
+    duration_min = duration / 60
+  )
+
+overall_subscription_rate <- mean(bank$subscribed)
+total_contacts <- nrow(bank)
+total_subscriptions <- sum(bank$subscribed)
+avg_duration <- mean(bank$duration_min)
+
+subscription_by_job <- bank |>
+  group_by(job) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  ) |>
+  filter(contacts >= 100) |>
+  arrange(subscription_rate)
+
+subscription_by_age <- bank |>
+  group_by(age_group) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_month <- bank |>
+  group_by(month_name) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_contact <- bank |>
+  group_by(contact) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_previous <- bank |>
+  group_by(previous_contact) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+econ_summary <- bank |>
+  group_by(y) |>
+  summarise(
+    avg_euribor3m = mean(euribor3m),
+    avg_employment = mean(nr.employed),
+    avg_cons_conf = mean(cons.conf.idx),
+    .groups = "drop"
+  )
+```
+
+# Overview
+
+## Row
+
+### Total Contacts
+
+```{r}
+value_box(
+  title = "Total Campaign Contacts",
+  value = comma(total_contacts),
+  showcase = bs_icon("telephone-fill"),
+  theme = value_box_theme(bg = mint, fg = ink)
+)
+```
+
+### Total Subscriptions
+
+```{r}
+value_box(
+  title = "Term Deposit Subscriptions",
+  value = comma(total_subscriptions),
+  showcase = bs_icon("check-circle-fill"),
+  theme = value_box_theme(bg = pink, fg = ink)
+)
+```
+
+### Subscription Rate
+
+```{r}
+value_box(
+  title = "Overall Subscription Rate",
+  value = percent(overall_subscription_rate, accuracy = 0.1),
+  showcase = bs_icon("graph-up-arrow"),
+  theme = value_box_theme(bg = lavender, fg = ink)
+)
+```
+
+### Average Call Duration
+
+```{r}
+value_box(
+  title = "Average Call Duration",
+  value = paste0(round(avg_duration, 1), " min"),
+  showcase = bs_icon("clock-fill"),
+  theme = value_box_theme(bg = yellow, fg = ink)
+)
+```
+
+## Row
+
+### Story
+
+This dashboard summarizes a Portuguese bank marketing campaign. The main goal is to understand which customer groups and campaign conditions are associated with a higher probability of subscribing to a term deposit. The target variable is `y`, where `Yes` means the customer subscribed and `No` means the customer did not subscribe.
+
+The dashboard focuses on four questions:
+
+1. Which customer segments have higher subscription rates?
+2. Which campaign timing and contact methods perform better?
+3. How does call duration relate to campaign success?
+4. What economic conditions are associated with successful subscriptions?
+
+### Target Outcome
+
+```{r}
+outcome_data <- bank |>
+  count(y) |>
+  mutate(percent = n / sum(n))
+
+plot_ly(
+  outcome_data,
+  labels = ~y,
+  values = ~n,
+  type = "pie",
+  marker = list(colors = c(mint, hot_pink), line = list(color = "#FFFFFF", width = 2)),
+  textinfo = "label+percent",
+  textfont = list(color = ink, size = 14),
+  hovertemplate = "Outcome: %{label}<br>Count: %{value}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Subscription Outcome", font = list(color = ink, size = 15)),
+    paper_bgcolor = cream,
+    plot_bgcolor = cream,
+    legend = list(orientation = "h")
+  )
+```
+
+::: {.chart-note}
+**What this means:** Most contacted customers did **not** subscribe. Because the success rate is low, the dashboard focuses on finding segments and campaign conditions where the subscription rate is higher.
+:::
+
+# Customer Segments
+
+## Row
+
+### Subscription Rate by Age Group
+
+```{r}
+p_age <- ggplot(subscription_by_age, aes(x = age_group, y = subscription_rate, fill = age_group)) +
+  geom_col(width = 0.72, color = "white", linewidth = 0.7) +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.35, size = 3.8, color = ink, fontface = "bold") +
+  scale_fill_manual(values = pastel_palette) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_age$subscription_rate) * 1.25)) +
+  labs(x = "Age Group", y = "Subscription Rate") +
+  pastel_theme
+
+ggplotly(p_age, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Customers aged **60+** have the highest subscription rate, while middle-age groups are lower. This suggests age is an important customer segment for the campaign story.
+:::
+
+### Subscription Rate by Job
+
+```{r}
+p_job <- ggplot(subscription_by_job, aes(x = subscription_rate, y = fct_reorder(job, subscription_rate), fill = job)) +
+  geom_col(color = "white", linewidth = 0.55) +
+  scale_fill_manual(values = rep(pastel_palette, length.out = nrow(subscription_by_job))) +
+  scale_x_continuous(labels = percent) +
+  labs(x = "Subscription Rate", y = "Job Type") +
+  pastel_theme +
+  theme(legend.position = "none")
+
+ggplotly(p_job, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Students and retired customers show stronger subscription rates than several working categories. This helps identify which customer groups may respond better to term deposit offers.
+:::
+
+# Campaign Performance
+
+## Row
+
+### Subscription Rate by Month
+
+```{r}
+p_month <- ggplot(subscription_by_month, aes(x = month_name, y = subscription_rate, group = 1)) +
+  geom_area(fill = aqua, alpha = 0.35) +
+  geom_line(linewidth = 1.3, color = hot_pink) +
+  geom_point(size = 4, color = "white", fill = lavender, shape = 21, stroke = 1.2) +
+  scale_y_continuous(labels = percent) +
+  labs(x = "Month", y = "Subscription Rate") +
+  pastel_theme
+
+ggplotly(p_month, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Subscription performance changes by month. Months with higher rates may reflect better timing, customer readiness, or external economic conditions.
+:::
+
+### Contact Method Comparison
+
+```{r}
+p_contact <- ggplot(subscription_by_contact, aes(x = contact, y = subscription_rate, fill = contact)) +
+  geom_col(width = 0.65, color = "white", linewidth = 0.7) +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.35, size = 4.2, color = ink, fontface = "bold") +
+  scale_fill_manual(values = c("Cellular" = mint, "Telephone" = pink)) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_contact$subscription_rate) * 1.25)) +
+  labs(x = "Contact Method", y = "Subscription Rate") +
+  pastel_theme
+
+ggplotly(p_contact, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Cellular contact performs better than telephone contact. For marketing strategy, contact channel choice may affect customer response.
+:::
+
+# Engagement and History
+
+## Row
+
+### Call Duration and Subscription Outcome
+
+```{r}
+p_duration <- ggplot(bank, aes(x = y, y = duration_min, fill = y)) +
+  geom_boxplot(outlier.alpha = 0.12, color = ink, linewidth = 0.45) +
+  scale_fill_manual(values = c("No" = mint, "Yes" = hot_pink)) +
+  coord_cartesian(ylim = c(0, 20)) +
+  labs(x = "Subscription Outcome", y = "Call Duration in Minutes") +
+  pastel_theme
+
+ggplotly(p_duration, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Customers who subscribed generally had longer calls. This is useful for understanding engagement, but it should not be used alone for targeting because duration is only known after the call.
+:::
+
+### Prior Contact Effect
+
+```{r}
+p_previous <- ggplot(subscription_by_previous, aes(x = previous_contact, y = subscription_rate, fill = previous_contact)) +
+  geom_col(width = 0.58, color = "white", linewidth = 0.7) +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.35, size = 3.8, color = ink, fontface = "bold") +
+  scale_fill_manual(values = c("No prior contact" = yellow, "Prior contact" = lavender)) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_previous$subscription_rate) * 1.3)) +
+  labs(x = "Previous Campaign Status", y = "Subscription Rate") +
+  pastel_theme +
+  theme(axis.text.x = element_text(size = 11), axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12))
+
+ggplotly(p_previous, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 85, l = 70, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Customers who had prior campaign contact show a much higher subscription rate. Prior engagement may indicate stronger interest or better campaign follow-up opportunities.
+:::
+
+# Economic Context
+
+## Row
+
+### Euribor Rate by Outcome
+
+```{r}
+p_euribor <- ggplot(bank, aes(x = y, y = euribor3m, fill = y)) +
+  geom_boxplot(outlier.alpha = 0.10, color = ink, linewidth = 0.45) +
+  scale_fill_manual(values = c("No" = aqua, "Yes" = rose)) +
+  labs(x = "Subscription Outcome", y = "Euribor 3-Month Rate") +
+  pastel_theme
+
+ggplotly(p_euribor, tooltip = c("x", "y")) |>
+  layout(paper_bgcolor = cream, plot_bgcolor = cream, margin = list(t = 15, b = 70, l = 65, r = 25))
+```
+
+::: {.chart-note}
+**What this means:** Subscription outcomes are associated with different Euribor rate levels. This suggests broader economic context may influence customer willingness to subscribe.
+:::
+
+### Economic Indicators Summary
+
+```{r}
+econ_summary |>
+  mutate(
+    avg_euribor3m = round(avg_euribor3m, 3),
+    avg_employment = round(avg_employment, 1),
+    avg_cons_conf = round(avg_cons_conf, 1)
+  ) |>
+  kable(
+    col.names = c(
+      "Subscription Outcome",
+      "Average Euribor 3M",
+      "Average Number Employed",
+      "Average Consumer Confidence"
+    ),
+    caption = "Average Economic Indicators by Campaign Outcome"
+  )
+```
+
+::: {.chart-note}
+**What this means:** The average economic indicators differ between subscribers and non-subscribers. This supports the idea that campaign performance is connected not only to customer profile, but also to market conditions.
+:::
+
+# Key Findings
+
+## Row {height=100%}
+
+### Visual Summary and Marketing Recommendation
+
+<div class="key-page">
+
+  <div class="section-title">✨ Key Findings</div>
+  <div class="section-subtitle">These insights summarize what the dashboard shows about customer subscription behavior.</div>
+
+  <div class="findings-grid compact-grid">
+    <div class="insight-card insight-pink">
+      <div class="insight-title">👥 Customer Segments</div>
+      <div class="insight-text">Older customers, especially the 60+ group, showed the strongest subscription rate. Age can help identify higher-potential campaign audiences.</div>
+    </div>
+
+    <div class="insight-card insight-mint">
+      <div class="insight-title">💼 Job Type Differences</div>
+      <div class="insight-text">Subscription rates varied by job type. Students and retired customers showed stronger performance than several other occupation groups.</div>
+    </div>
+
+    <div class="insight-card insight-yellow">
+      <div class="insight-title">📅 Campaign Timing</div>
+      <div class="insight-text">Subscription rates changed across months, which suggests that campaign timing may influence customer response.</div>
+    </div>
+
+    <div class="insight-card insight-aqua">
+      <div class="insight-title">📱 Contact Method</div>
+      <div class="insight-text">Cellular contact performed better than telephone contact. The way customers are reached appears related to campaign success.</div>
+    </div>
+
+    <div class="insight-card insight-lavender">
+      <div class="insight-title">🔁 Prior Contact History</div>
+      <div class="insight-text">Customers with previous campaign contact showed higher subscription rates than those with no prior contact.</div>
+    </div>
+
+    <div class="insight-card insight-peach">
+      <div class="insight-title">⏱️ Call Engagement</div>
+      <div class="insight-text">Subscribed customers tended to have longer call durations, although duration is only known after the call happens.</div>
+    </div>
+  </div>
+
+  <div class="recommendation-card compact-recommendation">
+    <div class="recommendation-title">💡 Recommended Marketing Strategy</div>
+    <div class="recommendation-text">Rather than contacting every customer equally, the bank should use a more targeted campaign strategy based on customer profile, timing, contact method, and prior engagement.</div>
+
+    <div class="action-list compact-actions">
+      <div class="action-pill">🎯 Prioritize older customers, students, and retired customers.</div>
+      <div class="action-pill">📱 Use cellular contact when possible.</div>
+      <div class="action-pill">📅 Plan campaigns around stronger-performing months.</div>
+      <div class="action-pill">🔁 Build follow-up strategies for previously contacted customers.</div>
+    </div>
+
+    <div class="final-takeaway">🌸 <strong>Final takeaway:</strong> Campaign success is not random. Better results may come from reaching the right customers, through stronger contact channels, at better campaign times.</div>
+  </div>
+
+</div>

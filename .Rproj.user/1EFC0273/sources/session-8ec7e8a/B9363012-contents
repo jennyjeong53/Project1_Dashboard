@@ -1,0 +1,357 @@
+---
+title: "Bank Marketing Campaign Dashboard"
+author: "Yujin Jeong"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    orientation: rows
+    scrolling: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+# Load packages
+library(tidyverse)
+library(plotly)
+library(knitr)
+library(scales)
+library(bslib)
+
+# Read data
+# Put this QMD file and the CSV file in the same folder.
+# If your CSV has a different name, change the file name below.
+if (file.exists("bank-additional-full.csv")) {
+  bank <- read.csv("bank-additional-full.csv", sep = ";")
+} else if (file.exists("bank-additional-full(2).csv")) {
+  bank <- read.csv("bank-additional-full(2).csv", sep = ";")
+} else {
+  stop("CSV file not found. Please place bank-additional-full.csv in the same folder as this QMD file.")
+}
+
+# Clean and prepare variables
+bank <- bank |>
+  mutate(
+    subscribed = if_else(y == "yes", 1, 0),
+    y = factor(y, levels = c("no", "yes")),
+    age_group = cut(
+      age,
+      breaks = c(0, 29, 39, 49, 59, 100),
+      labels = c("Under 30", "30-39", "40-49", "50-59", "60+"),
+      right = TRUE
+    ),
+    contact = str_to_title(contact),
+    month = factor(month, levels = c("mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")),
+    month_name = fct_recode(
+      month,
+      "Mar" = "mar", "Apr" = "apr", "May" = "may", "Jun" = "jun",
+      "Jul" = "jul", "Aug" = "aug", "Sep" = "sep", "Oct" = "oct",
+      "Nov" = "nov", "Dec" = "dec"
+    ),
+    previous_contact = if_else(previous > 0, "Previously contacted", "Not previously contacted"),
+    duration_min = duration / 60
+  )
+
+overall_subscription_rate <- mean(bank$subscribed)
+total_contacts <- nrow(bank)
+total_subscriptions <- sum(bank$subscribed)
+avg_duration <- mean(bank$duration_min)
+
+subscription_by_job <- bank |>
+  group_by(job) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  ) |>
+  filter(contacts >= 100) |>
+  arrange(subscription_rate)
+
+subscription_by_age <- bank |>
+  group_by(age_group) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_month <- bank |>
+  group_by(month_name) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_contact <- bank |>
+  group_by(contact) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+subscription_by_previous <- bank |>
+  group_by(previous_contact) |>
+  summarise(
+    contacts = n(),
+    subscription_rate = mean(subscribed),
+    .groups = "drop"
+  )
+
+econ_summary <- bank |>
+  group_by(y) |>
+  summarise(
+    avg_euribor3m = mean(euribor3m),
+    avg_employment = mean(nr.employed),
+    avg_cons_conf = mean(cons.conf.idx),
+    .groups = "drop"
+  )
+```
+
+# Overview
+
+## Row
+
+### Total Contacts
+
+```{r}
+value_box(
+  title = "Total Campaign Contacts",
+  value = comma(total_contacts),
+  showcase = bsicons::bs_icon("telephone")
+)
+```
+
+### Total Subscriptions
+
+```{r}
+value_box(
+  title = "Term Deposit Subscriptions",
+  value = comma(total_subscriptions),
+  showcase = bsicons::bs_icon("check-circle")
+)
+```
+
+### Subscription Rate
+
+```{r}
+value_box(
+  title = "Overall Subscription Rate",
+  value = percent(overall_subscription_rate, accuracy = 0.1),
+  showcase = bsicons::bs_icon("bar-chart")
+)
+```
+
+### Average Call Duration
+
+```{r}
+value_box(
+  title = "Average Call Duration",
+  value = paste0(round(avg_duration, 1), " min"),
+  showcase = bsicons::bs_icon("clock")
+)
+```
+
+## Row
+
+### Story
+
+This dashboard summarizes a Portuguese bank marketing campaign. The main goal is to understand which customer groups and campaign conditions are associated with a higher probability of subscribing to a term deposit. The target variable is `y`, where `yes` means the customer subscribed and `no` means the customer did not subscribe.
+
+The dashboard focuses on four questions:
+
+1. Which customer segments have higher subscription rates?
+2. Which campaign timing and contact methods perform better?
+3. How does call duration relate to campaign success?
+4. What economic conditions are associated with successful subscriptions?
+
+### Target Outcome
+
+```{r}
+outcome_data <- bank |>
+  count(y) |>
+  mutate(percent = n / sum(n))
+
+plot_ly(
+  outcome_data,
+  labels = ~y,
+  values = ~n,
+  type = "pie",
+  textinfo = "label+percent",
+  hovertemplate = "Outcome: %{label}<br>Count: %{value}<extra></extra>"
+) |>
+  layout(title = "Term Deposit Subscription Outcome")
+```
+
+# Customer Segments
+
+## Row
+
+### Subscription Rate by Age Group
+
+```{r}
+p_age <- ggplot(subscription_by_age, aes(x = age_group, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.3, size = 3.5) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_age$subscription_rate) * 1.25)) +
+  labs(
+    title = "Subscription Rate by Age Group",
+    x = "Age Group",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal()
+
+ggplotly(p_age, tooltip = c("x", "y"))
+```
+
+### Subscription Rate by Job
+
+```{r}
+p_job <- ggplot(subscription_by_job, aes(x = subscription_rate, y = fct_reorder(job, subscription_rate))) +
+  geom_col() +
+  scale_x_continuous(labels = percent) +
+  labs(
+    title = "Subscription Rate by Job Type",
+    x = "Subscription Rate",
+    y = "Job Type"
+  ) +
+  theme_minimal()
+
+ggplotly(p_job, tooltip = c("x", "y"))
+```
+
+# Campaign Performance
+
+## Row
+
+### Subscription Rate by Month
+
+```{r}
+p_month <- ggplot(subscription_by_month, aes(x = month_name, y = subscription_rate, group = 1)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Subscription Rate by Campaign Month",
+    x = "Month",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal()
+
+ggplotly(p_month, tooltip = c("x", "y"))
+```
+
+### Contact Method Comparison
+
+```{r}
+p_contact <- ggplot(subscription_by_contact, aes(x = contact, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.3, size = 4) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_contact$subscription_rate) * 1.25)) +
+  labs(
+    title = "Subscription Rate by Contact Method",
+    x = "Contact Method",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal()
+
+ggplotly(p_contact, tooltip = c("x", "y"))
+```
+
+# Engagement and History
+
+## Row
+
+### Call Duration and Subscription Outcome
+
+```{r}
+p_duration <- ggplot(bank, aes(x = y, y = duration_min)) +
+  geom_boxplot(outlier.alpha = 0.15) +
+  coord_cartesian(ylim = c(0, 20)) +
+  labs(
+    title = "Call Duration by Subscription Outcome",
+    subtitle = "The y-axis is limited to 20 minutes to make the pattern easier to read.",
+    x = "Subscription Outcome",
+    y = "Call Duration in Minutes"
+  ) +
+  theme_minimal()
+
+ggplotly(p_duration, tooltip = c("x", "y"))
+```
+
+### Previous Campaign Contact
+
+```{r}
+p_previous <- ggplot(subscription_by_previous, aes(x = previous_contact, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.3, size = 4) +
+  scale_y_continuous(labels = percent, limits = c(0, max(subscription_by_previous$subscription_rate) * 1.25)) +
+  labs(
+    title = "Subscription Rate by Previous Campaign Contact",
+    x = "Previous Campaign Status",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal()
+
+ggplotly(p_previous, tooltip = c("x", "y"))
+```
+
+# Economic Context
+
+## Row
+
+### Euribor Rate by Outcome
+
+```{r}
+p_euribor <- ggplot(bank, aes(x = y, y = euribor3m)) +
+  geom_boxplot(outlier.alpha = 0.1) +
+  labs(
+    title = "3-Month Euribor Rate by Subscription Outcome",
+    x = "Subscription Outcome",
+    y = "Euribor 3-Month Rate"
+  ) +
+  theme_minimal()
+
+ggplotly(p_euribor, tooltip = c("x", "y"))
+```
+
+### Economic Indicators Summary
+
+```{r}
+econ_summary |>
+  mutate(
+    avg_euribor3m = round(avg_euribor3m, 3),
+    avg_employment = round(avg_employment, 1),
+    avg_cons_conf = round(avg_cons_conf, 1)
+  ) |>
+  kable(
+    col.names = c(
+      "Subscription Outcome",
+      "Average Euribor 3M",
+      "Average Number Employed",
+      "Average Consumer Confidence"
+    ),
+    caption = "Average Economic Indicators by Campaign Outcome"
+  )
+```
+
+# Key Findings
+
+## Row
+
+### Main Insights
+
+- The overall subscription rate is relatively low, which means the campaign had a large class imbalance between customers who subscribed and customers who did not subscribe.
+- Subscription rates differ across customer segments, especially by age group and job type.
+- Campaign timing matters because subscription rates vary by month.
+- Contact method is associated with different subscription rates, suggesting that the way customers are contacted can influence campaign performance.
+- Customers with longer call durations are more likely to subscribe, but duration should be interpreted carefully because it is only known after the call happens.
+- Previous campaign contact and broader economic indicators also appear to be related to subscription outcomes.
+
+### Marketing Recommendation
+
+Based on this dashboard, the bank should focus on customer segments and campaign conditions with higher subscription rates instead of contacting all customers equally. A more targeted campaign strategy could improve efficiency by prioritizing stronger customer segments, better-performing months, and more effective contact methods.

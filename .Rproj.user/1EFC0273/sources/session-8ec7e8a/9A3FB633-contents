@@ -1,0 +1,284 @@
+---
+title: "Bank Marketing Campaign Success Dashboard"
+subtitle: "Static Dashboard for W10 Dashboard Assignment - Project 1"
+author: "Yujin Jeong"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    orientation: rows
+    scrolling: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| context: setup
+
+library(tidyverse)
+library(scales)
+library(gt)
+
+bank_raw <- read_delim(
+  "bank-additional-full.csv",
+  delim = ";",
+  show_col_types = FALSE
+)
+
+names(bank_raw) <- names(bank_raw) |>
+  str_replace_all("\\.", "_")
+
+bank <- bank_raw |>
+  mutate(
+    subscribed = if_else(y == "yes", "Subscribed", "Not Subscribed"),
+    subscribed = factor(subscribed, levels = c("Not Subscribed", "Subscribed")),
+    age_group = case_when(
+      age < 30 ~ "Under 30",
+      age >= 30 & age < 40 ~ "30-39",
+      age >= 40 & age < 50 ~ "40-49",
+      age >= 50 & age < 60 ~ "50-59",
+      TRUE ~ "60+"
+    ),
+    age_group = factor(age_group, levels = c("Under 30", "30-39", "40-49", "50-59", "60+")),
+    month = factor(month, levels = c("mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")),
+    contact = str_to_title(contact),
+    poutcome = str_to_title(poutcome),
+    job = str_replace_all(job, "\\.", " ") |> str_to_title(),
+    education = str_replace_all(education, "\\.", " ") |> str_to_title(),
+    y_binary = if_else(y == "yes", 1, 0)
+  )
+
+total_contacts <- nrow(bank)
+total_subscribed <- sum(bank$y == "yes")
+subscription_rate <- mean(bank$y == "yes")
+avg_duration <- mean(bank$duration)
+
+subscription_by_group <- function(data, group_var) {
+  data |>
+    group_by({{ group_var }}) |>
+    summarise(
+      contacts = n(),
+      subscriptions = sum(y == "yes"),
+      subscription_rate = subscriptions / contacts,
+      .groups = "drop"
+    )
+}
+```
+
+# Campaign Overview
+
+## Row {height="28%"}
+
+```{r}
+#| content: valuebox
+#| title: Total Customer Contacts
+#| icon: people-fill
+list(value = comma(total_contacts), color = "primary")
+```
+
+```{r}
+#| content: valuebox
+#| title: Total Subscriptions
+#| icon: check-circle-fill
+list(value = comma(total_subscribed), color = "success")
+```
+
+```{r}
+#| content: valuebox
+#| title: Overall Subscription Rate
+#| icon: graph-up
+list(value = percent(subscription_rate, accuracy = 0.1), color = "info")
+```
+
+```{r}
+#| content: valuebox
+#| title: Average Call Duration
+#| icon: telephone-fill
+list(value = paste0(round(avg_duration), " sec"), color = "warning")
+```
+
+## Row {height="72%"}
+
+```{r}
+#| title: Subscription Outcome Distribution
+bank |>
+  count(subscribed) |>
+  mutate(percent = n / sum(n)) |>
+  ggplot(aes(x = subscribed, y = percent, fill = subscribed)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = percent(percent, accuracy = 0.1)), vjust = -0.4) +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+  labs(
+    x = NULL,
+    y = "Share of Contacts",
+    title = "Most contacted customers did not subscribe",
+    subtitle = "This shows the overall challenge of converting bank marketing contacts into subscriptions."
+  ) +
+  theme_minimal()
+```
+
+# Customer Profile
+
+## Row
+
+```{r}
+#| title: Subscription Rate by Age Group
+subscription_by_group(bank, age_group) |>
+  ggplot(aes(x = age_group, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.4) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    x = "Age Group",
+    y = "Subscription Rate",
+    title = "Older customers show a relatively higher subscription rate"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#| title: Top Jobs by Subscription Rate
+subscription_by_group(bank, job) |>
+  filter(contacts >= 300) |>
+  arrange(desc(subscription_rate)) |>
+  slice_head(n = 10) |>
+  ggplot(aes(x = reorder(job, subscription_rate), y = subscription_rate)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    x = NULL,
+    y = "Subscription Rate",
+    title = "Some job groups respond better to the campaign",
+    subtitle = "Only job groups with at least 300 contacts are shown."
+  ) +
+  theme_minimal()
+```
+
+# Campaign Timing and Channel
+
+## Row
+
+```{r}
+#| title: Subscription Rate by Month
+subscription_by_group(bank, month) |>
+  ggplot(aes(x = month, y = subscription_rate, group = 1)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    x = "Month",
+    y = "Subscription Rate",
+    title = "Subscription success changes by campaign month"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#| title: Subscription Rate by Contact Type
+subscription_by_group(bank, contact) |>
+  ggplot(aes(x = contact, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.4) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    x = "Contact Type",
+    y = "Subscription Rate",
+    title = "Contact channel is associated with different campaign outcomes"
+  ) +
+  theme_minimal()
+```
+
+# Previous Campaign and Engagement
+
+## Row
+
+```{r}
+#| title: Previous Campaign Outcome
+subscription_by_group(bank, poutcome) |>
+  ggplot(aes(x = poutcome, y = subscription_rate)) +
+  geom_col() +
+  geom_text(aes(label = percent(subscription_rate, accuracy = 0.1)), vjust = -0.4) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    x = "Previous Campaign Outcome",
+    y = "Subscription Rate",
+    title = "Customers with previous success have a higher subscription rate"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#| title: Call Duration by Subscription Outcome
+bank |>
+  mutate(duration_min = duration / 60) |>
+  ggplot(aes(x = subscribed, y = duration_min, fill = subscribed)) +
+  geom_boxplot(show.legend = FALSE, outlier.alpha = 0.15) +
+  coord_cartesian(ylim = c(0, 15)) +
+  labs(
+    x = NULL,
+    y = "Call Duration in Minutes",
+    title = "Subscribed customers tend to have longer calls",
+    subtitle = "The y-axis is limited to 15 minutes to make the comparison easier to read."
+  ) +
+  theme_minimal()
+```
+
+# Economic Context
+
+## Row
+
+```{r}
+#| title: Economic Indicators by Subscription Outcome
+bank |>
+  group_by(subscribed) |>
+  summarise(
+    `Employment Variation Rate` = mean(emp_var_rate),
+    `Consumer Price Index` = mean(cons_price_idx),
+    `Consumer Confidence Index` = mean(cons_conf_idx),
+    `Euribor 3 Month Rate` = mean(euribor3m),
+    `Number Employed` = mean(nr_employed),
+    .groups = "drop"
+  ) |>
+  pivot_longer(-subscribed, names_to = "indicator", values_to = "value") |>
+  ggplot(aes(x = subscribed, y = value, fill = subscribed)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ indicator, scales = "free_y") +
+  labs(
+    x = NULL,
+    y = "Average Value",
+    title = "Economic indicators differ between subscribed and non-subscribed customers"
+  ) +
+  theme_minimal()
+```
+
+# Key Takeaways
+
+## Row
+
+```{r}
+#| title: Summary of Findings
+bank |>
+  summarise(
+    `Total Contacts` = comma(n()),
+    `Total Subscriptions` = comma(sum(y == "yes")),
+    `Overall Subscription Rate` = percent(mean(y == "yes"), accuracy = 0.1),
+    `Average Call Duration` = paste0(round(mean(duration)), " seconds")
+  ) |>
+  gt() |>
+  tab_header(
+    title = "Bank Marketing Campaign Summary",
+    subtitle = "The campaign reached many customers, but only a small share subscribed."
+  )
+```
+
+```{r}
+#| title: Dashboard Interpretation
+cat(
+  "The dashboard shows that the overall subscription rate is relatively low, which means the campaign had a difficult conversion goal. However, subscription rates vary across customer groups, months, contact types, and previous campaign outcomes. Older customers and customers with a successful previous campaign outcome appear more likely to subscribe. Longer call duration is also associated with successful subscriptions. These results suggest that banks can improve marketing performance by targeting stronger customer segments and using campaign history to prioritize follow-up contacts."
+)
+```
+
+
